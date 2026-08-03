@@ -49,12 +49,28 @@ import os
 import sys
 
 import swisseph as swe
-from fastapi import FastAPI, HTTPException
+from fastapi import Depends, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import Optional
 
-app = FastAPI(title="ourania-web-api")
+
+def _ensure_ephe_path() -> None:
+    """swe.set_ephe_path() en Vercel: los endpoints sync de FastAPI corren
+    en threads del threadpool de Starlette, uno distinto por request (o al
+    menos no necesariamente el thread de import del módulo) — y el estado
+    de ephe path de pyswisseph resultó ser thread-local ahí (aunque en el
+    sidecar de escritorio, un solo proceso uvicorn sin ese threadpool
+    dinámico, alcanzaba con setearlo una vez al importar). Sin esto: swe
+    caía a paths default hardcodeados tipo "/users/ephe/" y tiraba
+    "file not found" pese a que el archivo SÍ estaba en el deploy — bug
+    real encontrado en producción, no hipotético. Se cuelga como
+    dependencia global para que corra en el thread correcto en cada
+    request, sin tocar cada endpoint a mano."""
+    swe.set_ephe_path(_EPHE_DIR)
+
+
+app = FastAPI(title="ourania-web-api", dependencies=[Depends(_ensure_ephe_path)])
 
 # público sin auth por diseño (ver docstring del módulo) — cualquiera con
 # el link tiene que poder pegarle a esto desde el navegador, no hay sesión
@@ -133,7 +149,6 @@ def jd_from(date: str, time: Optional[str]) -> float:
 
 
 def positions(jd: float) -> list[dict]:
-    swe.set_ephe_path(_EPHE_DIR)  # DEBUG: test de hipótesis thread-local (Vercel)
     out = []
     for name, pid in PLANETS.items():
         (lon, lat, dist, lon_speed, *_), _ = swe.calc_ut(jd, pid, FLAGS)
@@ -205,16 +220,7 @@ class ChartReq(BaseModel):
 @app.get("/health")
 def health() -> dict:
     engine = "swisseph-full" if _HAS_FULL_EPHEMERIS else "swisseph-moshier"
-    # debug temporal: diagnosticar por qué swisseph no encuentra ephe/ en
-    # Vercel — sacar en cuanto quede resuelto.
-    debug = {
-        "ephe_dir": _EPHE_DIR,
-        "file": __file__,
-        "ephe_dir_exists": os.path.isdir(_EPHE_DIR),
-        "ephe_dir_listing": os.listdir(_EPHE_DIR) if os.path.isdir(_EPHE_DIR) else None,
-        "cwd": os.getcwd(),
-    }
-    return {"ok": True, "engine": engine, "version": swe.version, "debug": debug}
+    return {"ok": True, "engine": engine, "version": swe.version}
 
 
 @app.post("/chart")
