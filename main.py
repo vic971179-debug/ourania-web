@@ -204,7 +204,16 @@ class ChartReq(BaseModel):
 @app.get("/health")
 def health() -> dict:
     engine = "swisseph-full" if _HAS_FULL_EPHEMERIS else "swisseph-moshier"
-    return {"ok": True, "engine": engine, "version": swe.version}
+    # debug temporal: diagnosticar por qué swisseph no encuentra ephe/ en
+    # Vercel — sacar en cuanto quede resuelto.
+    debug = {
+        "ephe_dir": _EPHE_DIR,
+        "file": __file__,
+        "ephe_dir_exists": os.path.isdir(_EPHE_DIR),
+        "ephe_dir_listing": os.listdir(_EPHE_DIR) if os.path.isdir(_EPHE_DIR) else None,
+        "cwd": os.getcwd(),
+    }
+    return {"ok": True, "engine": engine, "version": swe.version, "debug": debug}
 
 
 @app.post("/chart")
