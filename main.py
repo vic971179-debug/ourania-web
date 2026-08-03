@@ -133,6 +133,7 @@ def jd_from(date: str, time: Optional[str]) -> float:
 
 
 def positions(jd: float) -> list[dict]:
+    swe.set_ephe_path(_EPHE_DIR)  # DEBUG: test de hipótesis thread-local (Vercel)
     out = []
     for name, pid in PLANETS.items():
         (lon, lat, dist, lon_speed, *_), _ = swe.calc_ut(jd, pid, FLAGS)
