@@ -18,18 +18,28 @@ aparte y privado, sin relación de licencia con este repo.
 
 ## Stack
 
-- `api/main.py` — FastAPI, calcula posiciones/casas/aspectos/dignidades/
-  tránsitos/revoluciones vía Swiss Ephemeris (modo Moshier).
+- `main.py` — FastAPI, calcula posiciones/casas/aspectos/dignidades/
+  tránsitos/revoluciones vía Swiss Ephemeris (modo Moshier). Vive en la
+  RAÍZ del repo (no adentro de `api/`) porque `api/index.py` hace
+  `from main import app` y Vercel solo pone la raíz del proyecto en
+  `sys.path`, no la carpeta de la función — moverlo adentro de `api/`
+  rompe el import en producción (`ModuleNotFoundError: No module named 'main'`),
+  aunque ande perfecto en local.
+- `api/index.py` — un solo `from main import app`, el entrypoint que
+  espera `@vercel/python`.
+- `ephe/` — igual, en la raíz (junto a `main.py`, no adentro de `api/`).
 - `public/index.html` — frontend estático sin build (HTML+JS plano),
   sin frameworks.
 - Deploy: Vercel (`@vercel/python` para el backend, estático para el frontend).
+  **Deployment Protection (SSO) tiene que estar OFF** para este proyecto —
+  por default Vercel bloquea con un login de Vercel cualquier acceso a los
+  `*.vercel.app`, lo cual rompe el propósito (acceso público sin cuenta).
 
 ## Desarrollo local
 
 ```bash
-cd api
-python3 -m venv ../.venv && source ../.venv/bin/activate
-pip install -r ../requirements.txt
+python3 -m venv .venv && source .venv/bin/activate
+pip install -r requirements.txt
 uvicorn main:app --port 8790
 ```
 
