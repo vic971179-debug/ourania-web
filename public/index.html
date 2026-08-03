@@ -152,7 +152,7 @@
 <footer>Ourania · vpardo.com — motor Swiss Ephemeris (Moshier) · sin cuentas, sin memoria</footer>
 
 <script>
-const API = ''; // mismo origen (rewrite /api/* en vercel.json)
+const API = ''; // mismo origen — vercel.json rutea cada endpoint por nombre directo (sin prefijo /api)
 const SIGN_ES = ['Aries','Tauro','Géminis','Cáncer','Leo','Virgo','Libra','Escorpio','Sagitario','Capricornio','Acuario','Piscis'];
 
 // grado+minuto+segundo, misma convención que degreeLabel() del desktop
@@ -264,7 +264,7 @@ function localToUtc(dateStr, timeStr, timeZone) {
 }
 
 async function api(path, body) {
-  const r = await fetch(`${API}/api${path}`, {
+  const r = await fetch(`${API}${path}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
