@@ -105,21 +105,19 @@
   td, th { padding: 3px 4px; text-align: left; border-bottom: 1px solid var(--line); }
   th { color: var(--ink-dim); font-weight: 500; }
   #resultado { display: none; }
+  /* NO sticky, a propósito: ya probamos "position: sticky; bottom: 0" y dio
+     DOS bugs reales distintos en el celular (fondo transparente dejando ver
+     contenido atrás, y después — con el gráfico de la rueda, que es alto —
+     la barra tapando parte del círculo mientras se scrollea). Un botón
+     normal al final de todo, sin flotar sobre nada, no tiene ninguno de
+     los dos problemas — el costo es tener que llegar al final del scroll,
+     que es un patrón común y no una pérdida real de usabilidad. */
   #copyBar {
-    position: sticky;
-    bottom: 0;
     display: flex;
     gap: 8px;
     padding: 10px 0;
-    /* opaca a propósito: el botón "secondary" normal usa fondo transparente
-       (para mimetizarse en una tarjeta), pero acá flota pegado abajo con
-       contenido real desplazándose atrás — sin fondo propio, ese contenido
-       se veía A TRAVÉS del botón, superpuesto e ilegible (bug real visto
-       en el celular). */
-    background: var(--paper);
-    box-shadow: 0 -8px 12px -4px rgba(32,29,24,0.10);
   }
-  #copyBar button { width: auto; flex: 1; background: var(--paper-raised); }
+  #copyBar button { width: auto; flex: 1; }
   footer { text-align: center; font-size: 10px; color: var(--ink-dim); margin-top: 24px; }
   #wheel svg text { font-variant-emoji: text; }
 
