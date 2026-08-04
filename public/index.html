@@ -479,9 +479,15 @@ function renderWheel(chart) {
   // longitud -> ángulo de pantalla: ASC siempre a la izquierda (180°),
   // el zodíaco avanza antihorario (mismo criterio que cualquier rueda
   // profesional: Solar Fire, astro.com, el propio desktop).
+  // misma fórmula que getPointPosition() del desktop (src/vendor/astrochart/
+  // utils.ts): angleInRadius = (180 - angle) * PI/180, x = cx + r*cos,
+  // y = cy + r*sin — CON el signo + en la Y (no -). El signo - que tenía
+  // acá antes invertía el gráfico verticalmente: el Medio Cielo terminaba
+  // abajo y el Fondo de Cielo arriba, al revés de la convención real
+  // (bug real, reportado y confirmado por Victor).
   function xy(lon, r) {
     const theta = ((180 - (lon - asc)) * Math.PI) / 180;
-    return [cx + r * Math.cos(theta), cy - r * Math.sin(theta)];
+    return [cx + r * Math.cos(theta), cy + r * Math.sin(theta)];
   }
 
   let svg = `<svg viewBox="0 0 ${size} ${size}" width="${size}" height="${size}">`;
