@@ -99,6 +99,7 @@
     color: var(--ink-dim);
   }
   .status { font-size: 11px; color: var(--ink-dim); margin-top: 6px; min-height: 14px; }
+  .rs-momento { font-size: 11px; color: var(--ink-dim); margin: 0 0 8px; }
   .status.err { color: #b91c1c; }
   table { width: 100%; border-collapse: collapse; font-size: 12px; font-family: ui-monospace, "SF Mono", monospace; }
   td, th { padding: 3px 4px; text-align: left; border-bottom: 1px solid var(--line); }
@@ -109,10 +110,18 @@
     bottom: 0;
     display: flex;
     gap: 8px;
-    padding-top: 8px;
+    padding: 10px 0;
+    /* opaca a propósito: el botón "secondary" normal usa fondo transparente
+       (para mimetizarse en una tarjeta), pero acá flota pegado abajo con
+       contenido real desplazándose atrás — sin fondo propio, ese contenido
+       se veía A TRAVÉS del botón, superpuesto e ilegible (bug real visto
+       en el celular). */
+    background: var(--paper);
+    box-shadow: 0 -8px 12px -4px rgba(32,29,24,0.10);
   }
-  #copyBar button { width: auto; flex: 1; }
+  #copyBar button { width: auto; flex: 1; background: var(--paper-raised); }
   footer { text-align: center; font-size: 10px; color: var(--ink-dim); margin-top: 24px; }
+  #wheel svg text { font-variant-emoji: text; }
 
   /* buscador de ciudad con resultados reales para elegir, no una sola
      conjetura silenciosa — mismo problema que tenía el desktop (Open-Meteo
@@ -150,16 +159,19 @@
   .city-results button .place-sub { display: block; font-size: 11px; color: var(--ink-dim); margin-top: 1px; }
   .city-picked {
     display: none;
-    align-items: center;
+    align-items: flex-start;
     justify-content: space-between;
-    gap: 8px;
+    gap: 10px;
     font-size: 11px;
     color: var(--ink-dim);
+    line-height: 1.4;
     margin-top: 6px;
   }
   .city-picked.on { display: flex; }
+  .city-picked span { flex: 1; min-width: 0; }
   .city-picked button {
     width: auto;
+    flex-shrink: 0;
     background: none;
     color: var(--vermillion);
     text-decoration: underline;
@@ -222,6 +234,9 @@
 </div>
 
 <div id="resultado">
+  <div class="card" id="wheelCard" style="display:flex; justify-content:center;">
+    <div id="wheel"></div>
+  </div>
   <div class="card">
     <h2>Posiciones</h2>
     <table id="tablaPosiciones"></table>
@@ -244,7 +259,9 @@
   </div>
   <div class="card">
     <h2>Revolución solar (año en curso)</h2>
-    <table id="tablaRS"></table>
+    <p class="rs-momento" id="rsMomento"></p>
+    <table id="tablaRSCuspides"></table>
+    <table id="tablaRS" style="margin-top:8px"></table>
   </div>
 </div>
 
@@ -433,6 +450,93 @@ function llenarTabla(id, filas) {
   document.getElementById(id).innerHTML = filas.map((f) => `<tr>${f.map((c) => `<td>${c}</td>`).join('')}</tr>`).join('');
 }
 
+// --- rueda SVG: no existía en v1 (solo tablas) — mismos colores por
+// elemento y glifos que el desktop (AstroWheelChart.tsx), pero implementación
+// propia y liviana, sin la librería vendoreada del desktop. Convención
+// estándar: Ascendente siempre a la izquierda (9 en punto), zodíaco
+// avanzando en sentido antihorario — no 0° Aries fijo a la izquierda.
+// Los símbolos Unicode del bloque "Zodiac" (♈-♓, U+2648-2653) se renderizan
+// como EMOJI DE COLOR en varias plataformas (confirmado con captura real:
+// cuadraditos violeta/celeste en vez de tinta), a diferencia del bloque
+// "Astronomical Symbols" (☉☽☿♀♂...) que sí se ve bien como texto en todos
+// lados probados — por eso los signos van con abreviatura de texto, no con
+// el glifo. Es más seguro que apostar a que el selector de variación
+// U+FE0E (que en teoría fuerza texto) se respete en cualquier dispositivo.
+const SIGN_GLYPH = ['Ari','Tau','Gem','Cán','Leo','Vir','Lib','Esc','Sag','Cap','Acu','Pis'];
+const ELEMENT_COLOR = [
+  '#B5652D','#7C6A3D','#9B8FA8','#3F6B87', // Aries Tauro Géminis Cáncer
+  '#B5652D','#7C6A3D','#9B8FA8','#3F6B87', // Leo Virgo Libra Escorpio
+  '#B5652D','#7C6A3D','#9B8FA8','#3F6B87', // Sagitario Capricornio Acuario Piscis
+];
+const PLANET_GLYPH = {
+  'Sol':'☉','Luna':'☽','Mercurio':'☿','Venus':'♀','Marte':'♂','Júpiter':'♃','Saturno':'♄',
+  'Urano':'♅','Neptuno':'♆','Plutón':'♇','Quirón':'⚷','Lilith':'⚸','Nodo Norte':'☊','Nodo Sur':'☋',
+};
+
+function renderWheel(chart) {
+  const size = 320, cx = size / 2, cy = size / 2;
+  const rOuter = 152, rSignIn = 128, rHouseOut = 128, rPlanet = 100, rTick = 152;
+  const asc = chart.houses ? chart.houses.asc : 0;
+
+  // longitud -> ángulo de pantalla: ASC siempre a la izquierda (180°),
+  // el zodíaco avanza antihorario (mismo criterio que cualquier rueda
+  // profesional: Solar Fire, astro.com, el propio desktop).
+  function xy(lon, r) {
+    const theta = ((180 - (lon - asc)) * Math.PI) / 180;
+    return [cx + r * Math.cos(theta), cy - r * Math.sin(theta)];
+  }
+
+  let svg = `<svg viewBox="0 0 ${size} ${size}" width="${size}" height="${size}">`;
+
+  // anillo de signos (12 sectores de 30°, color por elemento)
+  for (let s = 0; s < 12; s++) {
+    const lonStart = s * 30, lonEnd = lonStart + 30;
+    const [x1, y1] = xy(lonStart, rOuter), [x2, y2] = xy(lonEnd, rOuter);
+    const [x3, y3] = xy(lonEnd, rSignIn), [x4, y4] = xy(lonStart, rSignIn);
+    svg += `<path d="M${x1},${y1} A${rOuter},${rOuter} 0 0 0 ${x2},${y2} L${x3},${y3} A${rSignIn},${rSignIn} 0 0 1 ${x4},${y4} Z" fill="${ELEMENT_COLOR[s]}" fill-opacity="0.55" stroke="#201D18" stroke-width="0.75"/>`;
+    const [gx, gy] = xy(lonStart + 15, (rOuter + rSignIn) / 2);
+    svg += `<text x="${gx}" y="${gy}" font-size="9.5" font-weight="600" text-anchor="middle" dominant-baseline="central" fill="#201D18">${SIGN_GLYPH[s]}</text>`;
+  }
+  svg += `<circle cx="${cx}" cy="${cy}" r="${rOuter}" fill="none" stroke="#201D18" stroke-width="1.5"/>`;
+  svg += `<circle cx="${cx}" cy="${cy}" r="${rSignIn}" fill="none" stroke="#201D18" stroke-width="1"/>`;
+
+  // cúspides de casa (si hay hora exacta) + eje ASC/MC
+  if (chart.houses) {
+    chart.houses.cusps.forEach((c, i) => {
+      const [ix, iy] = xy(c, i % 3 === 0 ? rOuter : rHouseOut); // ángulos (1,4,7,10) un poco más largos
+      const [ox, oy] = xy(c, 0);
+      svg += `<line x1="${ox}" y1="${oy}" x2="${ix}" y2="${iy}" stroke="#201D18" stroke-width="${i % 3 === 0 ? 1.5 : 0.6}"/>`;
+      const [nx, ny] = xy(c + 4, rHouseOut - 14);
+      svg += `<text x="${nx}" y="${ny}" font-size="9" font-style="italic" text-anchor="middle" fill="#6B6350">${i + 1}</text>`;
+    });
+  }
+
+  // planetas — nudge simple si dos caen muy cerca en longitud, para que no
+  // se pisen los glifos (colisión básica, no tan fina como el desktop)
+  const bodies = [...chart.planets];
+  if (chart.node) {
+    bodies.push({ name: 'Nodo Norte', lon: chart.node.north.lon });
+    bodies.push({ name: 'Nodo Sur', lon: chart.node.south.lon });
+  }
+  const sorted = bodies.slice().sort((a, b) => a.lon - b.lon);
+  const nudged = new Map();
+  let lastLon = null, stack = 0;
+  for (const p of sorted) {
+    if (lastLon !== null && Math.abs(((p.lon - lastLon + 540) % 360) - 180) < 6) stack++;
+    else stack = 0;
+    nudged.set(p.name, stack);
+    lastLon = p.lon;
+  }
+  bodies.forEach((p) => {
+    const r = rPlanet - nudged.get(p.name) * 16;
+    const [x, y] = xy(p.lon, r);
+    svg += `<text x="${x}" y="${y}" font-size="15" text-anchor="middle" dominant-baseline="central" fill="${p.retrograde ? '#dc2626' : '#201D18'}">${PLANET_GLYPH[p.name] || '•'}</text>`;
+  });
+
+  svg += `</svg>`;
+  document.getElementById('wheel').innerHTML = svg;
+}
+
 async function calcular() {
   const err = document.getElementById('errStatus');
   const btn = document.getElementById('btnCalcular');
@@ -447,6 +551,7 @@ async function calcular() {
   try {
     const utc = localToUtc(fecha, hora, geo.timezone);
     const chart = await api('/chart', { date: utc.date, time: utc.time, lat: geo.lat, lon: geo.lon, time_quality: 'exact' });
+    renderWheel(chart);
 
     const puntos = chart.planets.map((p) => ({ name: p.name, lon: p.lon }));
     if (chart.node) {
@@ -481,6 +586,8 @@ async function calcular() {
     llenarTabla('tablaTransitos', transitos.hits.map((h) => [h.transit, h.aspect, h.radix, `${h.orb}°`]));
 
     const rs = await api('/solar_return', { natal_date: utc.date, natal_time: utc.time, year: hoy.getUTCFullYear(), lat: geo.lat, lon: geo.lon });
+    document.getElementById('rsMomento').textContent = `momento: ${rs.moment_utc}${rs.houses ? ` · Ascendente ${rs.houses.asc_sign} ${gradoMin(rs.houses.asc % 30)}` : ''}`;
+    llenarTabla('tablaRSCuspides', rs.houses ? rs.houses.cusps.map((c, i) => [`Casa ${i + 1}`, cuspLabel(c)]) : []);
     llenarTabla('tablaRS', rs.planets.map((p) => [p.name, `${p.sign} ${gradoMin(p.sign_degree)}${p.retrograde ? ' R' : ''}`]));
 
     document.getElementById('resultado').style.display = 'block';
@@ -517,6 +624,11 @@ function buildCopyText(chart, geo, puntos, aspectos, dign, transitos, rs) {
   transitos.hits.forEach((h) => L.push(`${h.transit} ${h.aspect} ${h.radix} (orbe ${h.orb}°)`));
   L.push('');
   L.push(`REVOLUCIÓN SOLAR ${new Date().getUTCFullYear()}`);
+  L.push(`momento: ${rs.moment_utc}`);
+  if (rs.houses) {
+    L.push(`Ascendente de la RS: ${rs.houses.asc_sign} ${gradoMin(rs.houses.asc % 30)}`);
+    rs.houses.cusps.forEach((c, i) => L.push(`Casa ${i + 1}  ${cuspLabel(c)}`));
+  }
   rs.planets.forEach((p) => L.push(`${p.name}  ${p.sign} ${gradoMin(p.sign_degree)}${p.retrograde ? ' R' : ''}`));
   return L.join('\n');
 }
