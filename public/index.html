@@ -79,15 +79,13 @@
     font-family: inherit;
     width: 100%;
   }
-  .row { display: flex; gap: 8px; }
-  /* min-width:0 es necesario para que un <input> nativo (fecha/hora) pueda
-     achicarse dentro de un flex item — por default los form controls tienen
-     min-width:auto (= su ancho de contenido), así que sin esto NO se
-     comprimen al 50%, se salen del contenedor y quedan superpuestos/corridos
-     a la derecha (bug real reportado por Victor en iPhone; en el simulador
-     de escritorio no se nota porque hay más ancho de sobra). */
-  .row > label { flex: 1; min-width: 0; }
-  .row input { width: 100%; min-width: 0; }
+  /* Fecha y Hora van en columna, cada una a lo ancho completo — se probó
+     lado a lado (flex 50/50, con y sin min-width:0) y Victor seguía viendo
+     los dos recuadros corridos y superpuestos en su iPhone real pese a que
+     en todos mis simuladores (Chromium, WebKit, iPhone SE/15) se veía bien.
+     En vez de seguir adivinando por qué falla puntualmente en su
+     dispositivo, se saca el layout de dos columnas del todo — así no hay
+     forma posible de que se superpongan, sea cual sea el ancho real. */
   button {
     font-size: 14px;
     font-weight: 600;
@@ -217,14 +215,12 @@
 
 <div class="card">
   <h2>Datos de nacimiento</h2>
-  <div class="row">
-    <label>Fecha
-      <input type="date" id="fecha" value="1990-01-01">
-    </label>
-    <label>Hora (local)
-      <input type="time" id="hora" value="12:00">
-    </label>
-  </div>
+  <label>Fecha
+    <input type="date" id="fecha" value="1990-01-01">
+  </label>
+  <label>Hora (local)
+    <input type="time" id="hora" value="12:00">
+  </label>
   <label class="city-wrap">Ciudad, país
     <input type="text" id="ciudad" placeholder="Ej: Buenos Aires" autocomplete="off">
     <div class="city-results" id="cityResults"></div>
