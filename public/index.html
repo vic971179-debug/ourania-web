@@ -140,7 +140,13 @@
     border-radius: 10px;
     box-shadow: 0 4px 14px rgba(32,29,24,0.14);
     z-index: 10;
-    overflow: hidden;
+    /* con 8 resultados (count=8, atlas propio) la lista sin tope de altura
+       se salía de la tarjeta y tapaba el pie de página en el celular
+       (reportado por Victor) — ahora scrollea adentro con un tope bajo,
+       para no seguir "asomando" fuera de la tarjeta en pantallas chicas. */
+    max-height: 220px;
+    overflow-y: auto;
+    overflow-x: hidden;
     display: none;
   }
   .city-results.open { display: block; }
