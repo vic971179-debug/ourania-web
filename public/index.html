@@ -7,27 +7,45 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Ourania">
 <meta name="theme-color" content="#F3EDDD">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1024 1024'%3E%3Crect width='1024' height='1024' rx='224' fill='%23F3EDDD'/%3E%3Cg transform='translate(512 512)'%3E%3Ccircle r='300' fill='none' stroke='%23201D18' stroke-width='13'/%3E%3Cg stroke='%23A6321F' stroke-width='19' stroke-linecap='round'%3E%3Cline x1='0' y1='-292' x2='0' y2='-356'/%3E%3Cline x1='292' y1='0' x2='356' y2='0'/%3E%3Cline x1='0' y1='292' x2='0' y2='356'/%3E%3Cline x1='-292' y1='0' x2='-356' y2='0'/%3E%3C/g%3E%3Cg fill='%23201D18'%3E%3Cpath d='M0,-300 L30,0 L0,300 L-30,0 Z'/%3E%3Cpath d='M0,-300 L30,0 L0,300 L-30,0 Z' transform='rotate(90)'/%3E%3C/g%3E%3Cg fill='%23A6321F'%3E%3Cpath d='M0,-172.5 L25.5,0 L0,172.5 L-25.5,0 Z' transform='rotate(45)'/%3E%3Cpath d='M0,-172.5 L25.5,0 L0,172.5 L-25.5,0 Z' transform='rotate(135)'/%3E%3C/g%3E%3Ccircle r='39' fill='%23F3EDDD' stroke='%23201D18' stroke-width='15'/%3E%3C/g%3E%3C/svg%3E">
 <style>
   :root {
+    /* paleta "Atlas Celeste" — idéntica a tailwind.config.cjs del desktop
+       (namespace ourania), no una aproximación libre. */
     --paper: #F3EDDD;
-    --paper-raised: #FBF7EC;
+    --paper-raised: #EAE1C7;
+    --line: #C9BC97;
     --ink: #201D18;
     --ink-dim: #6B6350;
-    --line: #D8CFB8;
-    --vermillion: #B5652D;
+    --vermillion: #A6321F;
+    --slate: #2B4C6F;
   }
   * { box-sizing: border-box; }
   body {
     margin: 0;
     background: var(--paper);
     color: var(--ink);
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", sans-serif;
     -webkit-font-smoothing: antialiased;
     padding: 16px;
     padding-bottom: 60px;
   }
-  h1 { font-size: 18px; margin: 0 0 4px; }
-  p.sub { color: var(--ink-dim); font-size: 12px; margin: 0 0 16px; }
+  .wrap { max-width: 520px; margin: 0 auto; }
+  header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 4px;
+  }
+  header svg { width: 34px; height: 34px; flex-shrink: 0; }
+  h1 {
+    font-family: "Iowan Old Style", "Palatino Linotype", Palatino, "Book Antiqua", Georgia, serif;
+    font-weight: 400;
+    font-size: 21px;
+    letter-spacing: 0.01em;
+    margin: 0;
+  }
+  p.sub { color: var(--ink-dim); font-size: 12px; margin: 6px 0 16px; line-height: 1.4; }
   .card {
     background: var(--paper-raised);
     border: 1px solid var(--line);
@@ -41,6 +59,7 @@
     letter-spacing: 0.04em;
     color: var(--ink-dim);
     margin: 0 0 10px;
+    font-weight: 600;
   }
   label {
     display: flex;
@@ -58,6 +77,7 @@
     background: #fff;
     color: var(--ink);
     font-family: inherit;
+    width: 100%;
   }
   .row { display: flex; gap: 8px; }
   .row > label { flex: 1; }
@@ -80,7 +100,7 @@
   }
   .status { font-size: 11px; color: var(--ink-dim); margin-top: 6px; min-height: 14px; }
   .status.err { color: #b91c1c; }
-  table { width: 100%; border-collapse: collapse; font-size: 12px; font-family: ui-monospace, monospace; }
+  table { width: 100%; border-collapse: collapse; font-size: 12px; font-family: ui-monospace, "SF Mono", monospace; }
   td, th { padding: 3px 4px; text-align: left; border-bottom: 1px solid var(--line); }
   th { color: var(--ink-dim); font-weight: 500; }
   #resultado { display: none; }
@@ -93,11 +113,89 @@
   }
   #copyBar button { width: auto; flex: 1; }
   footer { text-align: center; font-size: 10px; color: var(--ink-dim); margin-top: 24px; }
+
+  /* buscador de ciudad con resultados reales para elegir, no una sola
+     conjetura silenciosa — mismo problema que tenía el desktop (Open-Meteo
+     count=1) pero acá SÍ se resuelve, count=5 con lista clickeable. */
+  .city-wrap { position: relative; }
+  .city-results {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: calc(100% + 4px);
+    background: #fff;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    box-shadow: 0 4px 14px rgba(32,29,24,0.14);
+    z-index: 10;
+    overflow: hidden;
+    display: none;
+  }
+  .city-results.open { display: block; }
+  .city-results button {
+    display: block;
+    width: 100%;
+    text-align: left;
+    background: none;
+    border: none;
+    border-radius: 0;
+    color: var(--ink);
+    font-size: 13px;
+    font-weight: 400;
+    padding: 9px 12px;
+    cursor: pointer;
+  }
+  .city-results button + button { border-top: 1px solid var(--line); }
+  .city-results button:hover, .city-results button:focus { background: var(--paper); }
+  .city-results button .place-sub { display: block; font-size: 11px; color: var(--ink-dim); margin-top: 1px; }
+  .city-picked {
+    display: none;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    font-size: 11px;
+    color: var(--ink-dim);
+    margin-top: 6px;
+  }
+  .city-picked.on { display: flex; }
+  .city-picked button {
+    width: auto;
+    background: none;
+    color: var(--vermillion);
+    text-decoration: underline;
+    padding: 0;
+    font-size: 11px;
+    font-weight: 500;
+  }
 </style>
 </head>
 <body>
+<div class="wrap">
 
-<h1>Ourania — Carta natal</h1>
+<header>
+  <svg viewBox="0 0 1024 1024" aria-hidden="true">
+    <rect width="1024" height="1024" rx="224" fill="#F3EDDD"/>
+    <g transform="translate(512 512)">
+      <circle r="300" fill="none" stroke="#201D18" stroke-width="13"/>
+      <g stroke="#A6321F" stroke-width="19" stroke-linecap="round">
+        <line x1="0" y1="-292" x2="0" y2="-356"/>
+        <line x1="292" y1="0" x2="356" y2="0"/>
+        <line x1="0" y1="292" x2="0" y2="356"/>
+        <line x1="-292" y1="0" x2="-356" y2="0"/>
+      </g>
+      <g fill="#201D18">
+        <path d="M0,-300 L30,0 L0,300 L-30,0 Z"/>
+        <path d="M0,-300 L30,0 L0,300 L-30,0 Z" transform="rotate(90)"/>
+      </g>
+      <g fill="#A6321F">
+        <path d="M0,-172.5 L25.5,0 L0,172.5 L-25.5,0 Z" transform="rotate(45)"/>
+        <path d="M0,-172.5 L25.5,0 L0,172.5 L-25.5,0 Z" transform="rotate(135)"/>
+      </g>
+      <circle r="39" fill="#F3EDDD" stroke="#201D18" stroke-width="15"/>
+    </g>
+  </svg>
+  <h1>Ourania — Carta natal</h1>
+</header>
 <p class="sub">Cargá una fecha/hora/lugar y calculá al vuelo. No se guarda nada — cerrá la página y no queda rastro.</p>
 
 <div class="card">
@@ -110,9 +208,14 @@
       <input type="time" id="hora" value="12:00">
     </label>
   </div>
-  <label>Ciudad, país
-    <input type="text" id="ciudad" placeholder="Ej: Buenos Aires, Argentina" autocomplete="off">
+  <label class="city-wrap">Ciudad, país
+    <input type="text" id="ciudad" placeholder="Ej: Buenos Aires" autocomplete="off">
+    <div class="city-results" id="cityResults"></div>
   </label>
+  <div class="city-picked" id="cityPicked">
+    <span id="cityPickedText"></span>
+    <button type="button" id="cityChange">cambiar</button>
+  </div>
   <div class="status" id="geoStatus"></div>
   <button id="btnCalcular">Levantar carta</button>
   <div class="status err" id="errStatus"></div>
@@ -151,6 +254,7 @@
 
 <footer>Ourania · vpardo.com — motor Swiss Ephemeris (Moshier) · sin cuentas, sin memoria</footer>
 
+</div>
 <script>
 const API = ''; // mismo origen — vercel.json rutea cada endpoint por nombre directo (sin prefijo /api)
 const SIGN_ES = ['Aries','Tauro','Géminis','Cáncer','Leo','Virgo','Libra','Escorpio','Sagitario','Capricornio','Acuario','Piscis'];
@@ -214,29 +318,76 @@ function natalAspects(points) {
   return hits;
 }
 
-// --- geocodificación (Open-Meteo, mismo servicio que usa el desktop) ---
+// --- geocodificación con selección real (Open-Meteo, count=5) ---
 let geo = null; // { lat, lon, timezone, name }
+const inputCiudad = document.getElementById('ciudad');
+const cityResultsEl = document.getElementById('cityResults');
+const cityPickedEl = document.getElementById('cityPicked');
+const cityPickedTextEl = document.getElementById('cityPickedText');
+const geoStatusEl = document.getElementById('geoStatus');
+
+function cerrarResultados() {
+  cityResultsEl.classList.remove('open');
+  cityResultsEl.innerHTML = '';
+}
+
+function elegirCiudad(hit) {
+  geo = {
+    lat: hit.latitude,
+    lon: hit.longitude,
+    timezone: hit.timezone,
+    name: [hit.name, hit.admin1, hit.country].filter(Boolean).join(', '),
+  };
+  cerrarResultados();
+  inputCiudad.style.display = 'none';
+  cityPickedTextEl.textContent = `${geo.name} · ${geo.timezone}`;
+  cityPickedEl.classList.add('on');
+  geoStatusEl.textContent = `Ubicado: ${geo.lat.toFixed(4)}, ${geo.lon.toFixed(4)}`;
+}
+
+document.getElementById('cityChange').addEventListener('click', () => {
+  geo = null;
+  cityPickedEl.classList.remove('on');
+  inputCiudad.style.display = '';
+  inputCiudad.value = '';
+  geoStatusEl.textContent = '';
+  inputCiudad.focus();
+});
 
 async function buscarCiudad(q) {
-  const status = document.getElementById('geoStatus');
-  if (!q.trim()) { status.textContent = ''; geo = null; return; }
+  if (!q.trim()) { cerrarResultados(); return; }
   try {
-    const r = await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(q)}&count=1&language=es`);
+    const r = await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(q)}&count=5&language=es`);
     const data = await r.json();
-    const hit = data.results && data.results[0];
-    if (!hit) { status.textContent = 'No se encontró — probá "Ciudad, País".'; geo = null; return; }
-    geo = { lat: hit.latitude, lon: hit.longitude, timezone: hit.timezone, name: `${hit.name}, ${hit.country}` };
-    status.textContent = `Ubicado: ${geo.lat.toFixed(4)}, ${geo.lon.toFixed(4)} · ${geo.timezone}`;
+    const hits = data.results || [];
+    if (hits.length === 0) {
+      cityResultsEl.innerHTML = '<button type="button" disabled>No se encontró — probá otro nombre</button>';
+      cityResultsEl.classList.add('open');
+      return;
+    }
+    cityResultsEl.innerHTML = hits.map((hit, i) => `
+      <button type="button" data-i="${i}">
+        ${hit.name}
+        <span class="place-sub">${[hit.admin1, hit.country].filter(Boolean).join(', ')} · ${hit.timezone}</span>
+      </button>
+    `).join('');
+    cityResultsEl.classList.add('open');
+    cityResultsEl.querySelectorAll('button[data-i]').forEach((btn) => {
+      btn.addEventListener('click', () => elegirCiudad(hits[Number(btn.dataset.i)]));
+    });
   } catch (e) {
-    status.textContent = 'Error buscando la ciudad — probá de nuevo.';
-    geo = null;
+    cityResultsEl.innerHTML = '<button type="button" disabled>Error buscando — probá de nuevo</button>';
+    cityResultsEl.classList.add('open');
   }
 }
 
 let geoTimer = null;
-document.getElementById('ciudad').addEventListener('input', (e) => {
+inputCiudad.addEventListener('input', (e) => {
   clearTimeout(geoTimer);
-  geoTimer = setTimeout(() => buscarCiudad(e.target.value), 600);
+  geoTimer = setTimeout(() => buscarCiudad(e.target.value), 400);
+});
+document.addEventListener('click', (e) => {
+  if (!e.target.closest('.city-wrap')) cerrarResultados();
 });
 
 // --- conversión local -> UTC con offset histórico correcto ---
@@ -286,7 +437,7 @@ async function calcular() {
   const err = document.getElementById('errStatus');
   const btn = document.getElementById('btnCalcular');
   err.textContent = '';
-  if (!geo) { err.textContent = 'Ubicá una ciudad primero.'; return; }
+  if (!geo) { err.textContent = 'Elegí una ciudad de la lista primero.'; return; }
   const fecha = document.getElementById('fecha').value;
   const hora = document.getElementById('hora').value;
   if (!fecha || !hora) { err.textContent = 'Falta fecha u hora.'; return; }
