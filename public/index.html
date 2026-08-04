@@ -336,7 +336,7 @@ function natalAspects(points) {
   return hits;
 }
 
-// --- geocodificación con selección real (Open-Meteo, count=5) ---
+// --- geocodificación con atlas propio (self-hosted /geocode, sin límite de Open-Meteo) ---
 let geo = null; // { lat, lon, timezone, name }
 const inputCiudad = document.getElementById('ciudad');
 const cityResultsEl = document.getElementById('cityResults');
@@ -351,8 +351,8 @@ function cerrarResultados() {
 
 function elegirCiudad(hit) {
   geo = {
-    lat: hit.latitude,
-    lon: hit.longitude,
+    lat: hit.lat,
+    lon: hit.lon,
     timezone: hit.timezone,
     name: [hit.name, hit.admin1, hit.country].filter(Boolean).join(', '),
   };
@@ -372,11 +372,14 @@ document.getElementById('cityChange').addEventListener('click', () => {
   inputCiudad.focus();
 });
 
+let geoReqId = 0;
 async function buscarCiudad(q) {
   if (!q.trim()) { cerrarResultados(); return; }
+  const reqId = ++geoReqId;
   try {
-    const r = await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(q)}&count=5&language=es`);
+    const r = await fetch(`/geocode?q=${encodeURIComponent(q)}&count=8`);
     const data = await r.json();
+    if (reqId !== geoReqId) return; // llegó una búsqueda más nueva mientras esperábamos, se descarta
     const hits = data.results || [];
     if (hits.length === 0) {
       cityResultsEl.innerHTML = '<button type="button" disabled>No se encontró — probá otro nombre</button>';
@@ -394,6 +397,7 @@ async function buscarCiudad(q) {
       btn.addEventListener('click', () => elegirCiudad(hits[Number(btn.dataset.i)]));
     });
   } catch (e) {
+    if (reqId !== geoReqId) return;
     cityResultsEl.innerHTML = '<button type="button" disabled>Error buscando — probá de nuevo</button>';
     cityResultsEl.classList.add('open');
   }
@@ -402,7 +406,7 @@ async function buscarCiudad(q) {
 let geoTimer = null;
 inputCiudad.addEventListener('input', (e) => {
   clearTimeout(geoTimer);
-  geoTimer = setTimeout(() => buscarCiudad(e.target.value), 400);
+  geoTimer = setTimeout(() => buscarCiudad(e.target.value), 250);
 });
 document.addEventListener('click', (e) => {
   if (!e.target.closest('.city-wrap')) cerrarResultados();

@@ -223,6 +223,62 @@ def health() -> dict:
     return {"ok": True, "engine": engine, "version": swe.version}
 
 
+# --- buscador de ciudad propio (GeoNames cities15000, ~34k ciudades) ---
+# reemplaza la dependencia de Open-Meteo del frontend: pocos resultados
+# (count=5 fijo) y búsquedas que se pisaban entre sí sin un guard de
+# "solo la última cuenta" — con esto el buscador es propio, más grande,
+# y el orden/cancelación de requests se controla client-side con un id
+# de request creciente (ver public/index.html).
+import gzip
+import json
+import unicodedata
+
+with gzip.open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "cities.json.gz"), "rt", encoding="utf-8") as _f:
+    _CITIES = json.load(_f)
+
+
+def _norm(s: str) -> str:
+    s = unicodedata.normalize("NFKD", s)
+    return "".join(c for c in s if not unicodedata.combining(c)).lower()
+
+
+_CITIES_NORM = [_norm(c["n"]) for c in _CITIES]
+
+
+@app.get("/geocode")
+def geocode(q: str, count: int = 8) -> dict:
+    query = _norm(q.strip())
+    if not query:
+        return {"results": []}
+    prefix, contains = [], []
+    for city, name_norm in zip(_CITIES, _CITIES_NORM):
+        if name_norm.startswith(query):
+            prefix.append(city)
+        elif query in name_norm:
+            contains.append(city)
+        if len(prefix) >= count * 3:
+            break
+    results = (prefix + contains)[: count * 2]
+    # ya vienen ordenadas por población (ver build.py) — dedup liviano por
+    # nombre+país para no repetir el mismo lugar dos veces
+    seen = set()
+    out = []
+    for c in results:
+        key = (c["n"], c["c"])
+        if key in seen:
+            continue
+        seen.add(key)
+        out.append(c)
+        if len(out) >= count:
+            break
+    return {
+        "results": [
+            {"name": c["n"], "admin1": c["a"], "country": c["c"], "lat": c["lat"], "lon": c["lon"], "timezone": c["tz"]}
+            for c in out
+        ]
+    }
+
+
 @app.post("/chart")
 def chart(req: ChartReq) -> dict:
     has_time = req.time is not None and req.time_quality != "unknown"
