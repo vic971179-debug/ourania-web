@@ -31,6 +31,32 @@
     padding-bottom: 60px;
   }
   .wrap { max-width: 520px; margin: 0 auto; }
+
+  /* en pantallas de escritorio la columna angosta de mobile quedaba flotando
+     sola en un mar de fondo plano vacío — se ve "fuera de lugar". A partir
+     de tablet/desktop: columna un poco más ancha, más aire arriba, tipografía
+     algo mayor, y un fondo con un leve resplandor radial (motivo celeste,
+     no decoración genérica) para que la página se sienta compuesta en vez
+     de una tarjeta mobile perdida en el centro. */
+  @media (min-width: 700px) {
+    body {
+      padding: 64px 24px 96px;
+      background:
+        radial-gradient(ellipse 900px 560px at 50% -8%, rgba(166,50,31,0.05), transparent 60%),
+        radial-gradient(ellipse 700px 700px at 100% 100%, rgba(43,76,111,0.04), transparent 55%),
+        var(--paper);
+    }
+    .wrap { max-width: 620px; }
+    header svg { width: 42px; height: 42px; }
+    h1 { font-size: 26px; }
+    p.sub { font-size: 13px; }
+    .card { padding: 20px 24px; border-radius: 16px; }
+    .card h2 { font-size: 12px; }
+    /* input/select quedan en 16px (no se tocan): evita el zoom automático
+       de iOS al enfocar un campo, también en iPad con este ancho. */
+    label, table { font-size: 13.5px; }
+    button { font-size: 15px; padding: 13px 18px; }
+  }
   header {
     display: flex;
     align-items: center;
