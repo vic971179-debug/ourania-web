@@ -1,4 +1,4 @@
-fastapi==0.115.*
+fastapi==0.128.*
 pyswisseph==2.10.*
 pydantic==2.*
-uvicorn==0.32.*
+uvicorn==0.39.*
