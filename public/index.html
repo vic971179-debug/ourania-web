@@ -104,6 +104,15 @@
     color: var(--ink);
     font-family: inherit;
     width: 100%;
+    -webkit-appearance: none;
+    appearance: none;
+  }
+  /* foco propio y controlado — reemplaza cualquier chrome nativo del
+     navegador/SO (que no podemos estilar) por un anillo de marca. */
+  input:focus, select:focus {
+    outline: none;
+    border-color: var(--vermillion);
+    box-shadow: 0 0 0 3px rgba(166, 50, 31, 0.15);
   }
   /* Fecha y Hora van en columna, cada una a lo ancho completo — se probó
      lado a lado (flex 50/50, con y sin min-width:0) y Victor seguía viendo
@@ -248,10 +257,10 @@
 <div class="card">
   <h2>Datos de nacimiento</h2>
   <label>Fecha
-    <input type="date" id="fecha" value="1990-01-01" autocomplete="off">
+    <input type="text" inputmode="numeric" id="fecha" placeholder="DD/MM/AAAA" value="01/01/1990" maxlength="10" autocomplete="off">
   </label>
-  <label>Hora (local)
-    <input type="time" id="hora" value="12:00" autocomplete="off">
+  <label>Hora (local, 24 h)
+    <input type="text" inputmode="numeric" id="hora" placeholder="HH:MM" value="12:00" maxlength="5" autocomplete="off">
   </label>
   <label class="city-wrap">Ciudad, país
     <input type="text" id="ciudad" placeholder="Ej: Buenos Aires" autocomplete="off">
@@ -444,6 +453,40 @@ document.addEventListener('click', (e) => {
   if (!e.target.closest('.city-wrap')) cerrarResultados();
 });
 
+// --- fecha/hora: inputs de texto propios, no <input type="date"/"time"> ---
+// El halo que Victor vio en su iPhone real, asomando fuera de la tarjeta,
+// es chrome nativo de iOS Safari alrededor de esos controles — no hay CSS
+// que lo controle (mismo límite ya documentado con el selector nativo de
+// fecha del desktop). Con inputs de texto simples no hay date-picker nativo
+// que dibujar: el borde y el foco son 100% nuestros (ver regla :focus).
+const inputFecha = document.getElementById('fecha');
+const inputHora = document.getElementById('hora');
+
+function soloDigitos(s) { return s.replace(/\D/g, ''); }
+
+function formatearFecha(raw) {
+  const d = soloDigitos(raw).slice(0, 8);
+  return [d.slice(0, 2), d.slice(2, 4), d.slice(4, 8)].filter(Boolean).join('/');
+}
+function formatearHora(raw) {
+  const d = soloDigitos(raw).slice(0, 4);
+  return [d.slice(0, 2), d.slice(2, 4)].filter(Boolean).join(':');
+}
+inputFecha.addEventListener('input', (e) => { e.target.value = formatearFecha(e.target.value); });
+inputHora.addEventListener('input', (e) => { e.target.value = formatearHora(e.target.value); });
+
+// DD/MM/AAAA + HH:MM (24h) tecleados por el usuario -> { fecha:'YYYY-MM-DD', hora:'HH:MM' } o null si no es válido
+function leerFechaHora() {
+  const mFecha = inputFecha.value.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+  const mHora = inputHora.value.match(/^(\d{2}):(\d{2})$/);
+  if (!mFecha || !mHora) return null;
+  const [, dd, mm, yyyy] = mFecha;
+  const [, hh, mi] = mHora;
+  if (Number(mm) < 1 || Number(mm) > 12 || Number(dd) < 1 || Number(dd) > 31) return null;
+  if (Number(hh) > 23 || Number(mi) > 59) return null;
+  return { fecha: `${yyyy}-${mm}-${dd}`, hora: `${hh}:${mi}` };
+}
+
 // --- conversión local -> UTC con offset histórico correcto ---
 function localToUtc(dateStr, timeStr, timeZone) {
   const [y, mo, d] = dateStr.split('-').map(Number);
@@ -585,14 +628,13 @@ async function calcular() {
   const btn = document.getElementById('btnCalcular');
   err.textContent = '';
   if (!geo) { err.textContent = 'Elegí una ciudad de la lista primero.'; return; }
-  const fecha = document.getElementById('fecha').value;
-  const hora = document.getElementById('hora').value;
-  if (!fecha || !hora) { err.textContent = 'Falta fecha u hora.'; return; }
+  const fh = leerFechaHora();
+  if (!fh) { err.textContent = 'Fecha u hora inválida — formato DD/MM/AAAA y HH:MM.'; return; }
 
   btn.disabled = true;
   btn.textContent = 'Calculando…';
   try {
-    const utc = localToUtc(fecha, hora, geo.timezone);
+    const utc = localToUtc(fh.fecha, fh.hora, geo.timezone);
     const chart = await api('/chart', { date: utc.date, time: utc.time, lat: geo.lat, lon: geo.lon, time_quality: 'exact' });
     renderWheel(chart);
 
