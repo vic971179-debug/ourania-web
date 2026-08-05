@@ -76,7 +76,7 @@
     background: var(--paper-raised);
     border: 1px solid var(--line);
     border-radius: 12px;
-    padding: 14px;
+    padding: 16px 20px;
     margin-bottom: 12px;
   }
   .card h2 {
@@ -248,10 +248,10 @@
 <div class="card">
   <h2>Datos de nacimiento</h2>
   <label>Fecha
-    <input type="date" id="fecha" value="1990-01-01">
+    <input type="date" id="fecha" value="1990-01-01" autocomplete="off">
   </label>
   <label>Hora (local)
-    <input type="time" id="hora" value="12:00">
+    <input type="time" id="hora" value="12:00" autocomplete="off">
   </label>
   <label class="city-wrap">Ciudad, país
     <input type="text" id="ciudad" placeholder="Ej: Buenos Aires" autocomplete="off">
